@@ -1,6 +1,5 @@
 # Mutltiple-Particle-Walk
 
-@author: Raul M. Souza
 The Multiple Particle Competition and Cooperation or Multiple Particle Walk algorithm
  is a semi-supervised classification model.
  
