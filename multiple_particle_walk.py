@@ -87,7 +87,7 @@ def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change
     weak_particles = 0
     strong_particles = 0
 
-    #Maun Loop
+    #Main Loop
     for iter in range(0, max_iter):
         weak_particles = 0
         strong_particles = 0
@@ -97,14 +97,14 @@ def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change
             elif particles[i].strength <= 0.1:
                 weak_particles+=1
                 
-            #choose a random neighbor of the particle's current node
+            #choose a random neighbor of the particle's current position
             neighbor = random.choice(graph[particles[i].position])
             
-            #if not labeled it's label probabilities are going to be updated
+            #if not labeled, it's label probabilities are going to be updated
             if labels[neighbor] == -1:
-                #the change in the probability on the labels different of the particle's
+                #the probability change on the labels different of the particle's
                 other_label_prob_change = (particles[i].strength * prob_change)/(n_classes-1)
-                #the change in the probability on the same label of the particle's
+                #The probability change on the same label of the particle's
                 particle_label_prob_change = particles[i].strength * prob_change
                             
                 #set the probabilities in the different labels 
