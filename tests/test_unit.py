@@ -331,3 +331,35 @@ class TestPredictEdgeCases:
 
         # Results should differ (with high probability)
         assert not np.array_equal(pred1, pred2)
+
+
+class TestInputValidation:
+    """Tests for input validation in predict function."""
+
+    def test_raises_when_single_class(self):
+        data = np.array([[i, i] for i in range(10)], dtype=float)
+        labels = np.array([0, 0, 0, -1, -1, -1, -1, -1, -1, -1])  # Only class 0
+
+        with pytest.raises(ValueError, match="At least 2 classes"):
+            multiple_particle_walk.predict(data, labels)
+
+    def test_raises_when_no_labeled_samples(self):
+        data = np.array([[i, i] for i in range(10)], dtype=float)
+        labels = np.array([-1] * 10)
+
+        with pytest.raises(ValueError, match="At least one labeled sample"):
+            multiple_particle_walk.predict(data, labels)
+
+    def test_raises_when_n_neighbors_too_large(self):
+        data = np.array([[i, i] for i in range(5)], dtype=float)
+        labels = np.array([0, 1, -1, -1, -1])
+
+        with pytest.raises(ValueError, match="n_neighbors.*must be less than"):
+            multiple_particle_walk.predict(data, labels, n_neighbors=5)
+
+    def test_raises_when_data_labels_length_mismatch(self):
+        data = np.array([[i, i] for i in range(10)], dtype=float)
+        labels = np.array([0, 1, -1, -1, -1])  # Only 5 labels for 10 samples
+
+        with pytest.raises(ValueError, match="same length"):
+            multiple_particle_walk.predict(data, labels)
