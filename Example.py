@@ -15,8 +15,8 @@ from sklearn import metrics
 dataset = datasets.load_digits()
 
 #take a random labeled sample from the dataset
-rng = np.random.RandomState(42)
-random_unlabeled_points = rng.rand(len(dataset.target)) < 0.9
+rng = np.random.default_rng(42)
+random_unlabeled_points = rng.random(len(dataset.target)) < 0.9
 labels = np.copy(dataset.target)
 labels[random_unlabeled_points] = -1
 

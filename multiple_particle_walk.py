@@ -24,7 +24,7 @@ doi: 10.1109/TKDE.2011.119
 
 """
 
-from sklearn.neighbors import KDTree
+from sklearn.neighbors import kneighbors_graph
 import numpy as np 
 import random
 
@@ -35,42 +35,31 @@ class particle:
         self.label = label
 
 
-def make_undirected_graph(tree):
+def build_undirected_knn_adjacency_list(data, n_neighbors):
+    directed_graph = kneighbors_graph(
+        data,
+        n_neighbors=max(n_neighbors - 1, 1),
+        mode='connectivity',
+        include_self=False
+    ).tocsr()
+
+    undirected_graph = directed_graph.maximum(directed_graph.transpose()).tocsr()
+    undirected_graph.setdiag(0)
+    undirected_graph.eliminate_zeros()
+
     graph = []
-    #append tree to new object
-    for i in range(0,len(tree)):
-        graph.append(list(tree[i]))
-    
-    #add the other adjacencies
-    for i in range(0,len(tree)):
-        for j in range(0,len(tree)):
-            if i in tree[j]:
-                graph[i].append(j)
-    
+    for i in range(0, undirected_graph.shape[0]):
+        row_start = undirected_graph.indptr[i]
+        row_end = undirected_graph.indptr[i + 1]
+        graph.append(undirected_graph.indices[row_start:row_end].tolist())
+
     return graph
 
 
-def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change = 0.1, stop_criteria = 0.3, max_iter = 100):
-
-    kdt = KDTree(data, leaf_size=30, metric='euclidean')
-
-    tree = kdt.query(data, n_neighbors, return_distance=False) 
-    
-    tree = tree[:,1:n_neighbors]
-
-    classes = np.unique(labels)
-    classes = (classes[classes != -1])
-    n_classes = len(classes)
-
-    #the algorithm performs better with undirected graphs
-    graph = make_undirected_graph(tree)
-
-    #the probabilities of each instance belonging to each target class
+def initialize_probabilities_and_particles(labels, n_classes):
     label_probability = np.zeros((labels.size,n_classes))
-
     particles = []
 
-    # set the initial probabilities and position the particles
     for i in range(0, labels.size):
         if labels[i] == -1:
             for j in range(0,n_classes):
@@ -79,54 +68,50 @@ def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change
             particles.append(particle(i,labels[i]))
             label_probability[i,labels[i]] = 1.0
 
+    return label_probability, particles
 
-    #"Clone" the particles repeated times for the main loop
-    particles = particles*particle_multiplier
 
-    #variables for the stop criteria
+def update_unlabeled_neighbor_probability(particle_item, neighbor, label_probability, n_classes, prob_change):
+    other_label_prob_change = (particle_item.strength * prob_change)/(n_classes-1)
+    particle_label_prob_change = particle_item.strength * prob_change
+
+    for j in range(0,n_classes):
+        if j != particle_item.label:
+            label_probability[neighbor,j] -= other_label_prob_change
+            if label_probability[neighbor,j] < 0:
+                particle_label_prob_change += label_probability[neighbor,j]
+                label_probability[neighbor,j] = 0
+            label_probability[neighbor,particle_item.label] += particle_label_prob_change
+
+
+def run_main_iteration(particles, adjacency_list, labels, label_probability, n_classes, prob_change):
     weak_particles = 0
     strong_particles = 0
 
-    #Main Loop
-    for iter in range(0, max_iter):
-        weak_particles = 0
-        strong_particles = 0
-        for i in range(0, len(particles)):
-            if particles[i].strength >= 0.9:
-                strong_particles+=1
-            elif particles[i].strength <= 0.1:
-                weak_particles+=1
-                
-            #choose a random neighbor of the particle's current position
-            neighbor = random.choice(graph[particles[i].position])
-            
-            #if not labeled, it's label probabilities are going to be updated
-            if labels[neighbor] == -1:
-                #the probability change on the labels different of the particle's
-                other_label_prob_change = (particles[i].strength * prob_change)/(n_classes-1)
-                #The probability change on the same label of the particle's
-                particle_label_prob_change = particles[i].strength * prob_change
-                            
-                #set the probabilities in the different labels 
-                for j in range(0,n_classes):
-                    if j != particles[i].label:
-                        label_probability[neighbor,j] -= other_label_prob_change
-                        #if with the update the probability is lesser than zero
-                        #set it to zero and add the difference in the particle's label probability change
-                        if label_probability[neighbor,j] < 0:
-                            particle_label_prob_change += label_probability[neighbor,j]
-                            label_probability[neighbor,j] = 0
-                        #update the probability of the particle's label
-                        label_probability[neighbor,particles[i].label] += particle_label_prob_change
-            #the strength is set to the label probability of the same class
-            particles[i].strength = min(label_probability[neighbor,particles[i].label],1)
-            #update the particle's new position
-            particles[i].position = neighbor
-            
-        #check the stop criteria    
-        if (weak_particles + strong_particles)>((len(particles))*stop_criteria) and weak_particles>=(len(particles)*(stop_criteria/2)):
-            break
+    for i in range(0, len(particles)):
+        particle_item = particles[i]
 
+        if particle_item.strength >= 0.9:
+            strong_particles+=1
+        elif particle_item.strength <= 0.1:
+            weak_particles+=1
+
+        neighbor = random.choice(adjacency_list[particle_item.position])
+
+        if labels[neighbor] == -1:
+            update_unlabeled_neighbor_probability(particle_item, neighbor, label_probability, n_classes, prob_change)
+
+        particle_item.strength = min(label_probability[neighbor,particle_item.label],1)
+        particle_item.position = neighbor
+
+    return weak_particles, strong_particles
+
+
+def should_stop(weak_particles, strong_particles, total_particles, stop_criteria):
+    return (weak_particles + strong_particles)>((total_particles)*stop_criteria) and weak_particles>=(total_particles*(stop_criteria/2))
+
+
+def build_predictions(label_probability):
     predictions = np.zeros(len(label_probability)).astype(int)
 
     for i in range(0,len(label_probability)):
@@ -135,7 +120,35 @@ def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change
     return predictions
 
 
+def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change = 0.1, stop_criteria = 0.3, max_iter = 100):
+
+    classes = np.unique(labels)
+    classes = (classes[classes != -1])
+    n_classes = len(classes)
+
+    #the algorithm performs better with undirected graphs
+    adjacency_list = build_undirected_knn_adjacency_list(data, n_neighbors)
+
+    #the probabilities of each instance belonging to each target class
+    label_probability, particles = initialize_probabilities_and_particles(labels, n_classes)
 
 
+    #"Clone" the particles repeated times for the main loop
+    particles = particles*particle_multiplier
 
+    #Main Loop
+    for _ in range(0, max_iter):
+        weak_particles, strong_particles = run_main_iteration(
+            particles,
+            adjacency_list,
+            labels,
+            label_probability,
+            n_classes,
+            prob_change
+        )
+            
+        #check the stop criteria    
+        if should_stop(weak_particles, strong_particles, len(particles), stop_criteria):
+            break
 
+    return build_predictions(label_probability)
