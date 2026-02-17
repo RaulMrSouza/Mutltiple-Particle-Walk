@@ -7,7 +7,7 @@ Author: Raul M. Souza
 import numpy as np
 from sklearn import datasets, metrics
 
-import multiple_particle_walk
+import src.multiple_particle_walk as multiple_particle_walk
 
 dataset = datasets.load_digits()
 
