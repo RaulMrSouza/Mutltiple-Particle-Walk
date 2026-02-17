@@ -1,39 +1,52 @@
-# coding=utf8
+# -*- coding: utf-8 -*-
 """
-Created on Sat Feb 17 16:37:38 2018
+Multiple Particle Walk - Semi-supervised Classification
 
-@author: Raul M. Souza
+Author: Raul M. Souza
 
 The Multiple Particle Competition and Cooperation or Multiple Particle Walk algorithm
- is a semi-supervised classification model.
+is a semi-supervised classification model.
 
-It is a modified version of the original Particle Competition and Cooperation algorithm, see the reference
-for more information about the original.
+It is a modified version of the original Particle Competition and Cooperation algorithm,
+see the reference for more information about the original.
 
 The difference in this version is that each labeled sample will generate multiple 
 particles instead of one and there is only random walk movement.
 
-Notes
------
-References:
-    
+References
+----------
 [1] Breve, Fabricio Aparecido; Zhao, Liang; Quiles, Marcos Gonçalves; Pedrycz, Witold; Liu, Jiming, 
-"Particle Competition and Cooperation in Networks for Semi-Supervised Learning," 
-Knowledge and Data Engineering, IEEE Transactions on , vol.24, no.9, pp.1686,1698, Sept. 2012
-doi: 10.1109/TKDE.2011.119
-
+    "Particle Competition and Cooperation in Networks for Semi-Supervised Learning," 
+    Knowledge and Data Engineering, IEEE Transactions on, vol.24, no.9, pp.1686-1698, Sept. 2012
+    doi: 10.1109/TKDE.2011.119
 """
 
+from __future__ import annotations
+
+from typing import Optional
+
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from sklearn.neighbors import kneighbors_graph
-import numpy as np 
-import random
 
 
-class particle:
-    def __init__(self, position, label):
-        self.strength = 1.0
-        self.position = position
-        self.label = label
+class Particle:
+    """A particle that walks on the graph and updates node probabilities.
+    
+    Attributes
+    ----------
+    strength : float
+        Current strength of the particle (0.0 to 1.0).
+    position : int
+        Current node index in the graph.
+    label : int
+        Class label this particle promotes.
+    """
+    
+    def __init__(self, position: int, label: int) -> None:
+        self.strength: float = 1.0
+        self.position: int = position
+        self.label: int = label
 
 
 def build_undirected_knn_adjacency_list(data, n_neighbors):
@@ -57,17 +70,20 @@ def build_undirected_knn_adjacency_list(data, n_neighbors):
     return graph
 
 
-def initialize_probabilities_and_particles(labels, n_classes):
-    label_probability = np.zeros((labels.size,n_classes))
-    particles = []
+def initialize_probabilities_and_particles(
+    labels: NDArray[np.intp], n_classes: int
+) -> tuple[NDArray[np.floating], list[Particle]]:
+    """Initialize label probabilities and create particles for labeled nodes."""
+    label_probability = np.zeros((labels.size, n_classes))
+    particles: list[Particle] = []
 
     for i in range(0, labels.size):
         if labels[i] == -1:
-            for j in range(0,n_classes):
-                label_probability[i,j] = 1.0/n_classes
+            for j in range(0, n_classes):
+                label_probability[i, j] = 1.0 / n_classes
         else:
-            particles.append(particle(i,labels[i]))
-            label_probability[i,labels[i]] = 1.0
+            particles.append(Particle(i, labels[i]))
+            label_probability[i, labels[i]] = 1.0
 
     return label_probability, particles
 
@@ -85,7 +101,16 @@ def update_unlabeled_neighbor_probability(particle_item, neighbor, label_probabi
             label_probability[neighbor,particle_item.label] += particle_label_prob_change
 
 
-def run_main_iteration(particles, adjacency_list, labels, label_probability, n_classes, prob_change):
+def run_main_iteration(
+    particles: list[Particle],
+    adjacency_list: list[list[int]],
+    labels: NDArray[np.intp],
+    label_probability: NDArray[np.floating],
+    n_classes: int,
+    prob_change: float,
+    rng: np.random.Generator,
+) -> tuple[int, int]:
+    """Execute one iteration of the particle walk algorithm."""
     weak_particles = 0
     strong_particles = 0
 
@@ -93,16 +118,19 @@ def run_main_iteration(particles, adjacency_list, labels, label_probability, n_c
         particle_item = particles[i]
 
         if particle_item.strength >= 0.9:
-            strong_particles+=1
+            strong_particles += 1
         elif particle_item.strength <= 0.1:
-            weak_particles+=1
+            weak_particles += 1
 
-        neighbor = random.choice(adjacency_list[particle_item.position])
+        neighbors = adjacency_list[particle_item.position]
+        neighbor = neighbors[rng.integers(len(neighbors))]
 
         if labels[neighbor] == -1:
-            update_unlabeled_neighbor_probability(particle_item, neighbor, label_probability, n_classes, prob_change)
+            update_unlabeled_neighbor_probability(
+                particle_item, neighbor, label_probability, n_classes, prob_change
+            )
 
-        particle_item.strength = min(label_probability[neighbor,particle_item.label],1)
+        particle_item.strength = min(label_probability[neighbor, particle_item.label], 1)
         particle_item.position = neighbor
 
     return weak_particles, strong_particles
@@ -121,23 +149,67 @@ def build_predictions(label_probability):
     return predictions
 
 
-def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change = 0.1, stop_criteria = 0.3, max_iter = 100):
-
+def predict(
+    data: ArrayLike,
+    labels: ArrayLike,
+    n_neighbors: int = 6,
+    particle_multiplier: int = 30,
+    prob_change: float = 0.1,
+    stop_criteria: float = 0.3,
+    max_iter: int = 100,
+    random_state: Optional[int] = None,
+) -> NDArray[np.intp]:
+    """Predict labels for unlabeled samples using the Multiple Particle Walk algorithm.
+    
+    Parameters
+    ----------
+    data : array-like of shape (n_samples, n_features)
+        Feature matrix.
+    labels : array-like of shape (n_samples,)
+        Label array where -1 indicates unlabeled samples.
+    n_neighbors : int, default=6
+        Number of neighbors for k-NN graph construction.
+    particle_multiplier : int, default=30
+        Number of particles to spawn per labeled sample.
+    prob_change : float, default=0.1
+        Probability change rate when particles visit nodes.
+    stop_criteria : float, default=0.3
+        Fraction of particles that must be weak/strong to stop.
+    max_iter : int, default=100
+        Maximum number of iterations.
+    random_state : int or None, default=None
+        Seed for reproducible results. If None, results may vary between runs.
+    
+    Returns
+    -------
+    predictions : ndarray of shape (n_samples,)
+        Predicted class labels for all samples.
+    
+    Examples
+    --------
+    >>> from sklearn.datasets import load_iris
+    >>> data, target = load_iris(return_X_y=True)
+    >>> labels = target.copy()
+    >>> labels[::2] = -1  # Mark half as unlabeled
+    >>> predictions = predict(data, labels, random_state=42)
+    """
+    labels = np.asarray(labels)
+    rng = np.random.default_rng(random_state)
+    
     classes = np.unique(labels)
-    classes = (classes[classes != -1])
+    classes = classes[classes != -1]
     n_classes = len(classes)
 
-    #the algorithm performs better with undirected graphs
+    # The algorithm performs better with undirected graphs
     adjacency_list = build_undirected_knn_adjacency_list(data, n_neighbors)
 
-    #the probabilities of each instance belonging to each target class
+    # The probabilities of each instance belonging to each target class
     label_probability, particles = initialize_probabilities_and_particles(labels, n_classes)
 
+    # Clone the particles repeated times for the main loop
+    particles = particles * particle_multiplier
 
-    #"Clone" the particles repeated times for the main loop
-    particles = particles*particle_multiplier
-
-    #Main Loop
+    # Main loop
     for _ in range(0, max_iter):
         weak_particles, strong_particles = run_main_iteration(
             particles,
@@ -145,10 +217,11 @@ def predict(data, labels, n_neighbors = 6, particle_multiplier = 30, prob_change
             labels,
             label_probability,
             n_classes,
-            prob_change
+            prob_change,
+            rng,
         )
             
-        #check the stop criteria    
+        # Check the stop criteria    
         if should_stop(weak_particles, strong_particles, len(particles), stop_criteria):
             break
 

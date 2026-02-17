@@ -1,12 +1,5 @@
-import random
-import sys
-from pathlib import Path
-
 import numpy as np
-from sklearn import datasets
-from sklearn import metrics
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from sklearn import datasets, metrics
 
 import multiple_particle_walk
 
@@ -21,8 +14,7 @@ def test_digits_average_accuracy_above_87_percent_over_5_runs():
 
     accuracies = []
     for seed in range(5):
-        random.seed(seed)
-        predictions = multiple_particle_walk.predict(dataset.data, labels)
+        predictions = multiple_particle_walk.predict(dataset.data, labels, random_state=seed)
         accuracies.append(metrics.accuracy_score(dataset.target, predictions))
 
     mean_accuracy = float(np.mean(accuracies))
