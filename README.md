@@ -1,4 +1,4 @@
-# Mutltiple-Particle-Walk
+# Multiple-Particle-Walk
 
 The Multiple Particle Competition and Cooperation or Multiple Particle Walk algorithm
  is a semi-supervised classification model.
@@ -21,7 +21,7 @@ pip install -e .
 ## Run example
 
 ```bash
-python Example.py
+python example.py
 ```
 
 References:
