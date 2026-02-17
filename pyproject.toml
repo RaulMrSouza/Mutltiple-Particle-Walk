@@ -37,6 +37,7 @@ dev = [
 
 [tool.setuptools]
 py-modules = ["multiple_particle_walk"]
+package-data = {"" = ["py.typed"]}
 
 [tool.setuptools.package-dir]
 "" = "src"

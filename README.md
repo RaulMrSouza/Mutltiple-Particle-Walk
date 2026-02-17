@@ -1,5 +1,8 @@
 # Multiple-Particle-Walk
 
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 The Multiple Particle Competition and Cooperation or Multiple Particle Walk algorithm
  is a semi-supervised classification model.
  
