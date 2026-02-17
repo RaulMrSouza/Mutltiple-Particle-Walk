@@ -28,6 +28,7 @@ from sklearn.neighbors import kneighbors_graph
 import numpy as np 
 import random
 
+
 class particle:
     def __init__(self, position, label):
         self.strength = 1.0

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multiple-particle-walk"
+version = "0.1.0"
+description = "Multiple Particle Competition and Cooperation for semi-supervised classification"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "scikit-learn",
+]
+
+[tool.setuptools]
+py-modules = ["multiple_particle_walk"]
+
+[tool.setuptools.package-dir]
+"" = "src"

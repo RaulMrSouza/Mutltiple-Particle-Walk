@@ -9,6 +9,21 @@ for more information about the original.
 The difference in this version is that each labeled sample will generate multiple 
 particles instead of one and there is only random walk movement.
 
+## Installation
+
+Install dependencies and the project in editable mode:
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+## Run example
+
+```bash
+python Example.py
+```
+
 References:
     
 [1] Breve, Fabricio Aparecido; Zhao, Liang; Quiles, Marcos Gonçalves; Pedrycz, Witold; Liu, Jiming, 
