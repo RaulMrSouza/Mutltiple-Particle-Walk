@@ -23,34 +23,36 @@ References
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from sklearn.neighbors import kneighbors_graph
 
+__all__ = ["predict", "Particle", "STRONG_THRESHOLD", "WEAK_THRESHOLD"]
+
 # Particle strength thresholds for convergence detection
 STRONG_THRESHOLD: float = 0.9
 WEAK_THRESHOLD: float = 0.1
 
 
+@dataclass(slots=True)
 class Particle:
     """A particle that walks on the graph and updates node probabilities.
     
     Attributes
     ----------
-    strength : float
-        Current strength of the particle (0.0 to 1.0).
     position : int
         Current node index in the graph.
     label : int
         Class label this particle promotes.
+    strength : float
+        Current strength of the particle (0.0 to 1.0).
     """
-    
-    def __init__(self, position: int, label: int) -> None:
-        self.strength: float = 1.0
-        self.position: int = position
-        self.label: int = label
+    position: int
+    label: int
+    strength: float = field(default=1.0)
 
 
 def build_undirected_knn_adjacency_list(
