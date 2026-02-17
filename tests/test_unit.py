@@ -22,12 +22,12 @@ class TestParticle:
         p = Particle(position=5, label=2)
         assert p.position == 5
         assert p.label == 2
-        assert p.strength == 1.0
+        assert np.isclose(p.strength, 1.0)
 
     def test_particle_strength_can_be_modified(self):
         p = Particle(position=0, label=0)
         p.strength = 0.5
-        assert p.strength == 0.5
+        assert np.isclose(p.strength, 0.5)
 
 
 class TestBuildUndirectedKnnAdjacencyList:
@@ -87,20 +87,20 @@ class TestInitializeProbabilitiesAndParticles:
         labels = np.array([0, 1, 2])
         n_classes = 3
 
-        probs, particles = initialize_probabilities_and_particles(labels, n_classes)
+        probs, _ = initialize_probabilities_and_particles(labels, n_classes)
 
-        assert probs[0, 0] == 1.0
-        assert probs[1, 1] == 1.0
-        assert probs[2, 2] == 1.0
+        assert np.isclose(probs[0, 0], 1.0)
+        assert np.isclose(probs[1, 1], 1.0)
+        assert np.isclose(probs[2, 2], 1.0)
         # Other probabilities should be 0
-        assert probs[0, 1] == 0.0
-        assert probs[0, 2] == 0.0
+        assert np.isclose(probs[0, 1], 0.0)
+        assert np.isclose(probs[0, 2], 0.0)
 
     def test_particles_created_for_labeled_samples(self):
         labels = np.array([-1, 0, -1, 1, -1])
         n_classes = 2
 
-        probs, particles = initialize_probabilities_and_particles(labels, n_classes)
+        _, particles = initialize_probabilities_and_particles(labels, n_classes)
 
         assert len(particles) == 2
         assert particles[0].position == 1
@@ -112,11 +112,11 @@ class TestInitializeProbabilitiesAndParticles:
         labels = np.array([0, -1, 1, -1])
         n_classes = 2
 
-        probs, particles = initialize_probabilities_and_particles(labels, n_classes)
+        probs, _ = initialize_probabilities_and_particles(labels, n_classes)
 
         # Labeled samples
-        assert probs[0, 0] == 1.0
-        assert probs[2, 1] == 1.0
+        assert np.isclose(probs[0, 0], 1.0)
+        assert np.isclose(probs[2, 1], 1.0)
         # Unlabeled samples have uniform probability
         np.testing.assert_array_almost_equal(probs[1], [0.5, 0.5])
         np.testing.assert_array_almost_equal(probs[3], [0.5, 0.5])
